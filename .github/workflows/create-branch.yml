@@ -17,6 +17,8 @@ jobs:
           # Create branch from issue
           title=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50 | sed 's/-*$//')
           branch="${prefix}${{ github.event.issue.number }}-${title:-issue}"
+         
+          git fetch --all --originjj
           git config user.name github-actions
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git switch -c "$branch" && git push -u origin "$branch"
@@ -26,7 +28,7 @@ jobs:
 
           You can now work on this issue by checking out the branch:
           \`\`\`bash
-          git fetch origin
+          git fetch --all origin
           git checkout ${{ steps.create-branch.outputs.branch-name }}
           \`\`\``"
         env:
