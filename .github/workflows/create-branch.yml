@@ -9,22 +9,32 @@ jobs:
       contents: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - run: |
-          # Set branch prefix
-          prefix=i
+      - name: Checkout repo
+        uses: actions/checkout@v5
 
-          # Create branch from issue
+      - name: Set branch prefix
+        id: set-prefix
+        run: |
+          prefix=i
+          echo "prefix=${prefix:-issue}" >> $GITHUB_OUTPUT
+
+      - name: Create branch from issue
+        id: create-branch
+        run: |
           title=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50 | sed 's/-*$//')
-          branch="${prefix}${{ github.event.issue.number }}-${title:-issue}"
+          branch="${{ steps.set-prefix.outputs.prefix }}${{ github.event.issue.number }}-${title:-issue}"
          
-          git fetch --all --originjj
+          git fetch --all --origin
           git config user.name github-actions
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch -c "$branch" && git push -u origin "$branch"
+          git switch -c "$branch"
+          git push -u origin "$branch"
+
+          echo "branch-name=$branch" >> $GITHUB_OUTPUT
           
-          # Comment on issue
-          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch created: \`$branch\`
+      - name: Comment on issue
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch created: \`${{ steps.create-branch.output.branch-name }}\`
 
           You can now work on this issue by checking out the branch:
           \`\`\`bash
