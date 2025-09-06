@@ -45,6 +45,6 @@ jobs:
           \`\`\`bash
           git fetch --all --prune
           git checkout ${{ steps.create-branch.outputs.branch-name }}
-          \`\`\``"
+          \`\`\`"
         env:
           GH_TOKEN: ${{ github.token }}
