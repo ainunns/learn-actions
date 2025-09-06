@@ -27,14 +27,19 @@ jobs:
           git fetch --all --prune
           git config user.name github-actions
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch -c "$branch"
-          git push -u origin "$branch"
+
+          if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
+            echo "Branch already exists, skipping creation"
+          else
+            git switch -c "$branch"
+            git push -u origin "$branch"
+          fi
 
           echo "branch-name=$branch" >> $GITHUB_OUTPUT
           
       - name: Comment on issue
         run: |
-          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch created: \`${{ steps.create-branch.output.branch-name }}\`
+          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch ready at \`${{ steps.create-branch.output.branch-name }}\`
 
           You can now work on this issue by checking out the branch:
           \`\`\`bash
