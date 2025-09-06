@@ -3,13 +3,29 @@ on:
   issues:
     types: [assigned]
 jobs:
-  create_issue_branch_job:
+  create-branch:
     runs-on: ubuntu-latest
     permissions:
-      issues: write
       contents: write
+      issues: write
     steps:
-      - name: Create Issue Branch
-        uses: robvanderleek/create-issue-branch@main
+      - uses: actions/checkout@v4
+      - run: |
+          # Set branch prefix
+          prefix=i
+
+          # Create branch from issue
+          title=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50 | sed 's/-*$//')
+          branch="${prefix}${{ github.event.issue.number }}-${title:-issue}"
+          git config user.name github-actions
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "$branch" && git push -u origin "$branch"
+          
+          # Comment on issue
+          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch created: \`$branch\`
+
+          \`\`\`bash
+          git fetch && git checkout $branch
+          \`\`\`"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
