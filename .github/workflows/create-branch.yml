@@ -24,8 +24,10 @@ jobs:
           # Comment on issue
           gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch created: \`$branch\`
 
+          You can now work on this issue by checking out the branch:
           \`\`\`bash
-          git fetch && git checkout $branch
-          \`\`\`"
+          git fetch origin
+          git checkout ${{ steps.create-branch.outputs.branch-name }}
+          \`\`\``"
         env:
           GH_TOKEN: ${{ github.token }}
