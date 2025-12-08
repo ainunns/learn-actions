@@ -2,49 +2,94 @@ name: Create Branch from Issue
 on:
   issues:
     types: [assigned]
+
 jobs:
-  create-branch:
+  create_issue_branch_job:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
+    outputs:
+      branch-name: ${{ steps.create-branch.outputs.branch-name }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v5
+      - name: Check labels
+        id: check-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const validLabels = [
+              'feature',
+              'fix',
+              'hotfix',
+              'docs',
+              'chore',
+              'style',
+              'refactor',
+              'ci',
+              'test',
+              'perf',
+              'revert'
+            ];
+            
+            const issueLabels = context.payload.issue.labels.map(label => label.name);
+            const hasValidLabel = issueLabels.some(label => validLabels.includes(label));
+            
+            if (!hasValidLabel) {
+              core.setFailed('Issue does not have a valid label. Required labels: ' + validLabels.join(', '));
+            }
+            
+            // Extract the prefix from the label for branch naming
+            const prefix = issueLabels.find(label => validLabels.includes(label)) || 'issue';
+            core.setOutput('prefix', prefix);
+            core.setOutput('has-valid-label', hasValidLabel);
 
-      - name: Set branch prefix
-        id: set-prefix
-        run: |
-          prefix=i
-          echo "prefix=${prefix:-issue}" >> $GITHUB_OUTPUT
+      - name: Check out repository
+        if: steps.check-labels.outputs.has-valid-label == 'true'
+        uses: actions/checkout@v4.1.1
 
-      - name: Create branch from issue
+      - name: Create issue branch
+        if: steps.check-labels.outputs.has-valid-label == 'true'
         id: create-branch
-        run: |
-          title=$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g' | cut -c1-50 | sed 's/-*$//')
-          branch="${{ steps.set-prefix.outputs.prefix }}${{ github.event.issue.number }}-${title:-issue}"
-         
-          git fetch --all --prune
-          git config user.name github-actions
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
-          if git ls-remote --heads origin "$branch" | grep -q "$branch"; then
-            echo "Branch already exists in $branch, skipping creation"
-          else
-            git switch -c "$branch"
-            git push -u origin "$branch"
-          fi
-
-          echo "branch-name=$branch" >> $GITHUB_OUTPUT
-          
-      - name: Comment on issue
-        run: |
-          gh issue comment ${{ github.event.issue.number }} --body "🚀 Branch ready at \`${{ steps.create-branch.outputs.branch-name }}\`
-
-          You can now work on this issue by checking out the branch:
-          \`\`\`bash
-          git fetch --all --prune
-          git checkout ${{ steps.create-branch.outputs.branch-name }}
-          \`\`\`"
         env:
-          GH_TOKEN: ${{ github.token }}
+          number: ${{ github.event.issue.number }}
+          title: ${{ github.event.issue.title }}
+          prefix: ${{ steps.check-labels.outputs.prefix }}
+        run: |
+          issue_title=$(echo "${title}" | tr '[:upper:]' '[:lower:]')
+          issue_title=$(echo "${issue_title}" | sed 's/ /-/g')
+          issue_title=$(echo "${issue_title}" | sed 's/[^a-z0-9.\/_-]//g')
+          issue_title=$(echo "${issue_title}" | sed 's/[-._/]\+/-/g')
+          issue_title=$(echo "${issue_title}" | sed 's/^-\+\|-\+$//g')
+          issue_title=${issue_title:0:50}
+          issue_title=$(echo "${issue_title}" | sed 's/-\+$//g')
+          
+          # Ensure we have a non-empty title, fallback to 'issue' if empty
+          if [ -z "$issue_title" ]; then
+            issue_title="issue"
+          fi
+          
+          branchname="${prefix}/${issue_title}"
+          git switch -c "$branchname"
+          git config --global user.name 'github-actions'
+          git config --global user.email \
+              '41898282+github-actions[bot]@users.noreply.github.com'
+          git push -u origin "$branchname"
+          echo "branch-name=$branchname" >> $GITHUB_OUTPUT
+
+      - name: Comment on issue
+        if: steps.check-labels.outputs.has-valid-label == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Branch created: \`${{ steps.create-branch.outputs.branch-name }}\`
+              
+              You can now work on this issue by checking out the branch:
+              \`\`\`bash
+              git fetch origin
+              git checkout ${{ steps.create-branch.outputs.branch-name }}
+              \`\`\``
+            })
