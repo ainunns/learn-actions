@@ -68,7 +68,7 @@ jobs:
             issue_title="issue"
           fi
           
-          branchname="${prefix}/${issue_title}"
+          branchname="${prefix}/${number}-${issue_title}"
           git switch -c "$branchname"
           git config --global user.name 'github-actions'
           git config --global user.email \
