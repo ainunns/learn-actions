@@ -30,19 +30,17 @@ jobs:
             ];
             
             const branchName = context.payload.pull_request.head.ref;
-            core.info(`Branch name: ${branchName}`);08179880026
+            core.info(`Branch name: ${branchName}`);
             
             // Extract prefix from branch name (e.g., "feat/123-title" -> "feat")
             const match = branchName.match(/^([^\/]+)\//);
             const prefix = match ? match[1] : null;
             
             if (prefix && validPrefixes.includes(prefix)) {
-              core.setOutput('branch-prefix', `${prefix}/i`);
-              core.info(`Using branch prefix: ${prefix}/i`);
+              core.setOutput('branch-prefix', `${prefix}/`);
+              core.info(`Using branch prefix: ${prefix}/`);
             } else {
-              // Fallback to just "i" if no valid prefix found
-              core.setOutput('branch-prefix', 'i');
-              core.info('No valid prefix found, using default: i');
+              core.setFailed('Branch prefix is not valid. Valid prefixes: ' + validPrefixes.join(', '));
             }
 
       - name: Add issue links
