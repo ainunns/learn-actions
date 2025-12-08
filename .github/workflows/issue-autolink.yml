@@ -8,9 +8,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      issues: read
     steps:
-      - uses: tkt-actions/add-issue-links@v1.8.2
+      - name: Extract branch prefix
+        id: extract-prefix
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const validPrefixes = [
+              'feature',
+              'fix',
+              'hotfix',
+              'docs',
+              'chore',
+              'style',
+              'refactor',
+              'ci',
+              'test',
+              'perf',
+              'revert'
+            ];
+            
+            const branchName = context.payload.pull_request.head.ref;
+            core.info(`Branch name: ${branchName}`);08179880026
+            
+            // Extract prefix from branch name (e.g., "feat/123-title" -> "feat")
+            const match = branchName.match(/^([^\/]+)\//);
+            const prefix = match ? match[1] : null;
+            
+            if (prefix && validPrefixes.includes(prefix)) {
+              core.setOutput('branch-prefix', `${prefix}/i`);
+              core.info(`Using branch prefix: ${prefix}/i`);
+            } else {
+              // Fallback to just "i" if no valid prefix found
+              core.setOutput('branch-prefix', 'i');
+              core.info('No valid prefix found, using default: i');
+            }
+
+      - name: Add issue links
+        uses: tkt-actions/add-issue-links@v1.9.1
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          branch-prefix: "i"
+          branch-prefix: "${{ steps.extract-prefix.outputs.branch-prefix }}"
           resolve: "true"
